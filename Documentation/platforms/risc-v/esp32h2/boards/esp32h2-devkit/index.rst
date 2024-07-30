@@ -87,6 +87,17 @@ All of the configurations presented below can be tested by running the following
 Where <config_name> is the name of board configuration you want to use, i.e.: nsh, buttons, wifi...
 Then use a serial console terminal like ``picocom`` configured to 115200 8N1.
 
+bmp180
+------
+
+This configuration enables the use of the BMP180 pressure sensor over I2C.
+You can check that the sensor is working by using the ``bmp180`` application::
+
+    nsh> bmp180
+    Pressure value = 91531
+    Pressure value = 91526
+    Pressure value = 91525
+
 coremark
 --------
 
@@ -117,6 +128,21 @@ We can use the interrupt pin to send a signal when the interrupt fires::
 
 The pin is configured as a rising edge interrupt, so after issuing the
 above command, connect it to 3.3V.
+
+i2c
+---
+
+This configuration can be used to scan and manipulate I2C devices.
+You can scan for all I2C devices using the following command::
+
+    nsh> i2c dev 0x00 0x7f
+
+mcuboot_nsh
+--------------------
+
+This configuration is the same as the ``nsh`` configuration, but it generates the application
+image in a format that can be used by MCUboot. It also makes the ``make bootloader`` command to
+build the MCUboot bootloader image using the Espressif HAL.
 
 nsh
 ---
@@ -184,6 +210,17 @@ You can set an alarm, check its progress and receive a notification after it exp
     Alarm 0 is active with 10 seconds to expiration
     nsh> alarm_daemon: alarm 0 received
 
+spi
+--------
+
+This configuration enables the support for the SPI driver.
+You can test it by connecting MOSI and MISO pins which are GPIO7 and GPIO2
+by default to each other and running the ``spi`` example::
+
+    nsh> spi exch -b 2 "AB"
+    Sending:	AB
+    Received:	AB
+
 spiflash
 --------
 
@@ -208,6 +245,25 @@ To test it, just run the following::
   nsh> timer -d /dev/timerx
 
 Where x in the timer instance.
+
+twai
+----
+
+This configuration enables the support for the TWAI (Two-Wire Automotive Interface) driver.
+You can test it by connecting TWAI RX and TWAI TX pins which are GPIO0 and GPIO2 by default
+to an external transceiver or connecting TWAI RX to TWAI TX pin by enabling
+the `CONFIG_CAN_LOOPBACK` option (``Device Drivers -> CAN Driver Support -> CAN loopback mode``)
+and running the ``can`` example::
+
+    nsh> can
+    nmsgs: 0
+    min ID: 1 max ID: 2047
+    Bit timing:
+      Baud: 1000000
+      TSEG1: 15
+      TSEG2: 4
+        SJW: 3
+      ID:    1 DLC: 1
 
 usbconsole
 ----------

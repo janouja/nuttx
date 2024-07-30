@@ -245,6 +245,7 @@
  */
 
 #  define always_inline_function __attribute__((always_inline,no_instrument_function))
+#  define inline_function __attribute__((always_inline)) inline
 #  define noinline_function __attribute__((noinline))
 
 /* The noinstrument_function attribute informs GCC don't instrument it */
@@ -302,6 +303,7 @@
 #    define malloc_like1(a) __attribute__((__malloc__(__builtin_free, 1))) __attribute__((__alloc_size__(a)))
 #    define malloc_like2(a, b) __attribute__((__malloc__(__builtin_free, 1))) __attribute__((__alloc_size__(a, b)))
 #    define realloc_like(a) __attribute__((__alloc_size__(a)))
+#    define realloc_like2(a, b) __attribute__((__alloc_size__(a, b)))
 #  else
 #    define fopen_like __attribute__((__malloc__))
 #    define popen_like __attribute__((__malloc__))
@@ -309,6 +311,7 @@
 #    define malloc_like1(a) __attribute__((__malloc__)) __attribute__((__alloc_size__(a)))
 #    define malloc_like2(a, b) __attribute__((__malloc__)) __attribute__((__alloc_size__(a, b)))
 #    define realloc_like(a) __attribute__((__alloc_size__(a)))
+#    define realloc_like2(a, b) __attribute__((__alloc_size__(a, b)))
 #  endif
 
 /* Some versions of GCC have a separate __syslog__ format.
@@ -488,8 +491,8 @@
 /* CMSE extention */
 
 #  ifdef CONFIG_ARCH_HAVE_TRUSTZONE
-#    define cmse_nonsecure_entry __attribute__((cmse_nonsecure_entry))
-#    define cmse_nonsecure_call __attribute__((cmse_nonsecure_call))
+#    define tz_nonsecure_entry __attribute__((cmse_nonsecure_entry))
+#    define tz_nonsecure_call  __attribute__((cmse_nonsecure_call))
 #  endif
 
 /* SDCC-specific definitions ************************************************/
@@ -557,6 +560,7 @@
 /* SDCC does not support forced inlining. */
 
 #  define always_inline_function
+#  define inline_function inline
 #  define noinline_function
 #  define noinstrument_function
 #  define nooptimiziation_function
@@ -575,6 +579,7 @@
 #  define malloc_like1(a)
 #  define malloc_like2(a, b)
 #  define realloc_like(a)
+#  define realloc_like2(a, b)
 
 #  define format_like(a)
 #  define printf_like(a, b)
@@ -701,6 +706,7 @@
 #  define end_packed_struct
 #  define naked_function
 #  define always_inline_function
+#  define inline_function inline
 #  define noinline_function
 #  define noinstrument_function
 #  define nooptimiziation_function
@@ -717,6 +723,7 @@
 #  define malloc_like1(a)
 #  define malloc_like2(a, b)
 #  define realloc_like(a)
+#  define realloc_like2(a, b)
 #  define format_like(a)
 #  define printf_like(a, b)
 #  define syslog_like(a, b)
@@ -813,6 +820,7 @@
 #  define reentrant_function
 #  define naked_function
 #  define always_inline_function
+#  define inline_function inline
 #  define noinline_function
 #  define noinstrument_function
 #  define nooptimiziation_function
@@ -829,6 +837,7 @@
 #  define malloc_like1(a)
 #  define malloc_like2(a, b)
 #  define realloc_like(a)
+#  define realloc_like2(a, b)
 #  define format_like(a)
 #  define printf_like(a, b)
 #  define syslog_like(a, b)
@@ -904,6 +913,7 @@
 #  define reentrant_function
 #  define naked_function
 #  define always_inline_function
+#  define inline_function __forceinline
 #  define noinline_function
 #  define noinstrument_function
 #  define nooptimiziation_function
@@ -920,6 +930,7 @@
 #  define malloc_like1(a)
 #  define malloc_like2(a, b)
 #  define realloc_like(a)
+#  define realloc_like2(a, b)
 #  define format_like(a)
 #  define printf_like(a, b)
 #  define syslog_like(a, b)
@@ -982,7 +993,8 @@
 #  define end_packed_struct             __attribute__((packed))
 #  define reentrant_function
 #  define naked_function
-#  define always_inline_function        __attribute__((always_inline))
+#  define always_inline_function        __attribute__((always_inline,no_instrument_function))
+#  define inline_function               __attribute__((always_inline)) inline
 #  define noinline_function             __attribute__((noinline))
 #  define noinstrument_function
 #  define nooptimiziation_function      __attribute__((optimize(0)))
@@ -999,6 +1011,7 @@
 #  define malloc_like1(a)
 #  define malloc_like2(a, b)
 #  define realloc_like(a)
+#  define realloc_like2(a, b)
 #  define format_like(a)
 #  define printf_like(a, b)
 #  define syslog_like(a, b)
@@ -1049,6 +1062,7 @@
 #  define reentrant_function
 #  define naked_function
 #  define always_inline_function
+#  define inline_function
 #  define noinline_function
 #  define noinstrument_function
 #  define nooptimiziation_function
@@ -1065,6 +1079,7 @@
 #  define malloc_like1(a)
 #  define malloc_like2(a, b)
 #  define realloc_like(a)
+#  define realloc_like2(a, b)
 #  define format_like(a)
 #  define printf_like(a, b)
 #  define syslog_like(a, b)

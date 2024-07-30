@@ -54,7 +54,7 @@
 #include <nuttx/tls.h>
 
 #include "xtensa.h"
-#include "xtensa_attr.h"
+#include "esp_attr.h"
 #include "hardware/esp32s3_system.h"
 #include "hardware/esp32s3_rtccntl.h"
 #include "hardware/esp32s3_syscon.h"
@@ -109,7 +109,7 @@
 
 #define DEFAULT_LISTEN_INTERVAL CONFIG_EXAMPLE_WIFI_LISTEN_INTERVAL
 
-#define RTC_CLK_CAL_FRACT  19  //!< Number of fractional bits in values returned by rtc_clk_cal
+#define RTC_CLK_CAL_FRACT  19  /* Number of fractional bits in values returned by rtc_clk_cal */
 
 #define ets_timer       _ETSTIMER_
 
@@ -1945,7 +1945,7 @@ static int32_t esp_task_ms_to_tick(uint32_t ms)
 
 static void *esp_task_get_current_task(void)
 {
-  pid_t pid = nxsched_getpid();
+  pid_t pid = nxsched_gettid();
 
   return (void *)((uintptr_t)pid);
 }
@@ -4466,7 +4466,7 @@ int esp_wifi_notify_subscribe(pid_t pid, struct sigevent *event)
             {
               if (pid == 0)
                 {
-                  pid = nxsched_getpid();
+                  pid = nxsched_gettid();
                   wlinfo("Actual PID=%d\n", pid);
                 }
 

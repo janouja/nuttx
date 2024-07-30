@@ -30,6 +30,24 @@
 #include <stdint.h>
 
 /****************************************************************************
+ * Pre-processor Definitions
+ ****************************************************************************/
+
+/* Checking needed by MMC/SDCard */
+
+#ifdef CONFIG_NSH_MMCSDSLOTNO
+#  define SDIO_SLOTNO   CONFIG_NSH_MMCSDSLOTNO
+#else
+#  define SDIO_SLOTNO   0
+#endif
+
+#ifdef CONFIG_NSH_MMCSDMINOR
+#  define SDIO_MINOR   CONFIG_NSH_MMCSDMINOR
+#else
+#  define SDIO_MINOR   0
+#endif
+
+/****************************************************************************
  * Public Types
  ****************************************************************************/
 
@@ -53,6 +71,54 @@
 
 #if defined(CONFIG_BOARDCTL) || defined(CONFIG_BOARD_LATE_INITIALIZE)
 int imx9_bringup(void);
+#endif
+
+/****************************************************************************
+ * Name: imx9_pwm_setup
+ *
+ * Description:
+ *   Initialize PWM outputs
+ *
+ ****************************************************************************/
+
+#if defined(CONFIG_PWM)
+int imx9_pwm_setup(void);
+#endif
+
+/****************************************************************************
+ * Name: imx9_i2c_setup
+ *
+ * Description:
+ *   Initialize I2C devices and driver
+ *
+ ****************************************************************************/
+
+#if defined(CONFIG_I2C_DRIVER)
+int imx9_i2c_initialize(void);
+#endif
+
+/****************************************************************************
+ * Name: imx9_spi_setup
+ *
+ * Description:
+ *   Initialize SPI devices and driver
+ *
+ ****************************************************************************/
+
+#if defined(CONFIG_SPI_DRIVER)
+int imx9_spi_initialize(void);
+#endif
+
+/****************************************************************************
+ * Name: imx9_usdhc_init
+ *
+ * Description:
+ *   Initialize uSDHC driver
+ *
+ ****************************************************************************/
+
+#if defined(CONFIG_MMCSD)
+int imx9_usdhc_init(void);
 #endif
 
 #endif /* __ASSEMBLY__ */

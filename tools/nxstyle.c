@@ -184,6 +184,7 @@ static const struct file_section_s g_section_info[] =
 static const char *g_white_prefix[] =
 {
   "ASCII_",  /* Ref:  include/nuttx/ascii.h */
+  "Dl_info", /* Ref:  include/dlfcn.h */
   "Elf",     /* Ref:  include/elf.h, include/elf32.h, include/elf64.h */
   "PRId",    /* Ref:  inttypes.h */
   "PRIi",    /* Ref:  inttypes.h */
@@ -450,6 +451,35 @@ static const char *g_white_content_list[] =
   "AsyncBoth",
   "CurrentTime",
   "XUnmapWindow",
+
+  /* Ref:
+   * nuttx/arch/sim/src/sim_hostdecoder.*
+   */
+
+  "ISVCDecoder",
+  "SBufferInfo",
+  "SDecodingParam",
+  "eEcActiveIdc",
+  "sVideoProperty",
+  "eVideoBsType",
+  "cmResultSuccess",
+  "uiInBsTimeStamp",
+  "dsErrorFree",
+  "iBufferStatus",
+  "UsrData",
+  "sSystemBuffer",
+  "iWidth",
+  "iHeight",
+  "iStride",
+  "uiOutYuvTimeStamp",
+  "WelsCreateDecoder",
+  "WelsDestroyDecoder",
+  "Initialize",
+  "Uninitialize",
+  "DecodeFrame2",
+  "FlushFrame",
+  "SetOption",
+  "GetOption",
 
   /* Ref:
    * sim/posix/sim_deviceimage.c
@@ -3093,7 +3123,16 @@ int main(int argc, char **argv, char **envp)
 
           if (m > g_maxline && !rhcomment)
             {
-              ERROR("Long line found", lineno, m);
+              /* Ignore the line 2 (file path) */
+
+              if (lineno == 2)
+                {
+                  INFO("Skipping checking line 2: path file\n", 2, m);
+                }
+              else
+                {
+                  ERROR("Long line found", lineno, m);
+                }
             }
         }
 

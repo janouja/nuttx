@@ -18,9 +18,26 @@
  *
  ****************************************************************************/
 
+#include <nuttx/config.h>
+
+#define TEXT_ADDR     CONFIG_RAM_START
+
 SECTIONS
 {
-  . = 0x80000000;
+  . = TEXT_ADDR;
+
+  /* where the global variable out-of-bounds detection information located */
+#ifdef CONFIG_MM_KASAN_GLOBAL
+  .kasan.unused :
+  {
+    *(.data..LASANLOC*)
+  }
+  .kasan.global :
+  {
+    KEEP (*(.data..LASAN0))
+    KEEP (*(.data.rel.local..LASAN0))
+  }
+#endif
 
   .text :
     {
@@ -95,6 +112,7 @@ SECTIONS
       *(.sbss.*)
       *(.gnu.linkonce.b*)
       *(COMMON)
+      . = ALIGN(32);
       _ebss = . ;
     }
 

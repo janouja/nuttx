@@ -31,6 +31,11 @@
  * Pre-processor Definitions
  ****************************************************************************/
 
+/* Cache line sizes (in bytes)for the i.MX9 (Cortex-A55) */
+
+#define ARMV8A_DCACHE_LINESIZE 64  /* 64 bytes (16 words) */
+#define ARMV8A_ICACHE_LINESIZE 64  /* 64 bytes (16 words) */
+
 /* Number of bytes in x kibibytes/mebibytes/gibibytes */
 
 #define KB(x)   ((x) << 10)
@@ -39,7 +44,7 @@
 
 #if defined(CONFIG_ARCH_CHIP_IMX93)
 
-#if CONFIG_ARM_GIC_VERSION == 3 || CONFIG_ARM_GIC_VERSION == 4
+#if CONFIG_ARM64_GIC_VERSION == 3 || CONFIG_ARM64_GIC_VERSION == 4
 
 #define CONFIG_GICD_BASE          0x48000000
 #define CONFIG_GICR_BASE          0x48040000
@@ -47,15 +52,21 @@
 
 #else
 
-#error CONFIG_ARM_GIC_VERSION should be 2, 3 or 4
+#error CONFIG_ARM64_GIC_VERSION should be 3 or 4
 
-#endif /* CONFIG_ARM_GIC_VERSION */
+#endif /* CONFIG_ARM64_GIC_VERSION */
 
 #define CONFIG_RAMBANK1_ADDR      0x80000000
 #define CONFIG_RAMBANK1_SIZE      MB(128)
 
 #define CONFIG_DEVICEIO_BASEADDR  0x40000000
 #define CONFIG_DEVICEIO_SIZE      MB(512)
+
+#define CONFIG_OCRAM_BASE_ADDR    0x20480000
+#define CONFIG_OCRAM_SIZE         KB(640)
+
+#define CONFIG_FSPI_PER_BASEADDR  0x28000000
+#define CONFIG_FSPI_PER_SIZE      MB(128)
 
 #define MPID_TO_CLUSTER_ID(mpid)  ((mpid) & ~0xff)
 

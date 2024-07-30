@@ -28,6 +28,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <debug.h>
+#include <sched.h>
 
 #include <nuttx/irq.h>
 #include <nuttx/arch.h>
@@ -39,15 +40,12 @@
 #include <nuttx/spinlock.h>
 
 #include "x86_64_internal.h"
+#include "intel64_cpu.h"
 #include "intel64.h"
 
 /****************************************************************************
  * Pre-processor Definitions
  ****************************************************************************/
-
-#define UART_BASE 0x3f8
-
-#define IRQ_STACK_SIZE 0x2000
 
 /****************************************************************************
  * Private Types
@@ -55,7 +53,7 @@
 
 struct intel64_irq_priv_s
 {
-  uint8_t busy;
+  cpu_set_t busy;
 };
 
 /****************************************************************************
@@ -70,14 +68,6 @@ static inline void up_idtinit(void);
 /****************************************************************************
  * Public Data
  ****************************************************************************/
-
-volatile uint64_t *g_current_regs;
-
-uint8_t g_interrupt_stack[IRQ_STACK_SIZE] aligned_data(16);
-uint8_t *g_interrupt_stack_end = g_interrupt_stack + IRQ_STACK_SIZE - 16;
-
-uint8_t g_isr_stack[IRQ_STACK_SIZE] aligned_data(16);
-uint8_t *g_isr_stack_end = g_isr_stack + IRQ_STACK_SIZE - 16;
 
 /****************************************************************************
  * Private Data
@@ -169,49 +159,6 @@ void up_ioapic_unmask_pin(unsigned int pin)
   cur = up_ioapic_read(IOAPIC_REG_TABLE + pin * 2);
   up_ioapic_write(IOAPIC_REG_TABLE + pin * 2,
       cur & ~(IOAPIC_PIN_DISABLE));
-}
-
-/****************************************************************************
- * Name: up_init_ist
- *
- * Description:
- *  Initialize the Interrupt Stack Table
- *
- ****************************************************************************/
-
-static void up_ist_init(void)
-{
-  struct gdt_entry_s tss_l;
-  uint64_t           tss_h;
-
-  memset(&tss_l, 0, sizeof(tss_l));
-  memset(&tss_h, 0, sizeof(tss_h));
-
-  tss_l.limit_low = (((104 - 1) & 0xffff));    /* Segment limit = TSS size - 1 */
-
-  tss_l.base_low  = ((uintptr_t)g_ist64 & 0x00ffffff);          /* Low address 1 */
-  tss_l.base_high = (((uintptr_t)g_ist64 & 0xff000000) >> 24);  /* Low address 2 */
-
-  tss_l.P = 1;
-
-  /* Set type as IST */
-
-  tss_l.AC = 1;
-  tss_l.EX = 1;
-
-  tss_h = (((uintptr_t)g_ist64 >> 32) & 0xffffffff);  /* High address */
-
-  g_gdt64[X86_GDT_ISTL_SEL_NUM] = tss_l;
-
-  /* memcpy used to handle type punning compiler warning */
-
-  memcpy((void *)&g_gdt64[X86_GDT_ISTH_SEL_NUM],
-         (void *)&tss_h, sizeof(g_gdt64[0]));
-
-  g_ist64->IST1 = (uintptr_t)g_interrupt_stack_end;
-  g_ist64->IST2 = (uintptr_t)g_isr_stack_end;
-
-  asm volatile ("mov $0x30, %%ax; ltr %%ax":::"memory", "rax");
 }
 
 /****************************************************************************
@@ -358,6 +305,7 @@ legacy_pic_irq_handler(int irq, uint32_t *regs, void *arg)
 #ifndef CONFIG_ARCH_INTEL64_DISABLE_INT_INIT
 static void up_ioapic_init(void)
 {
+  uint32_t maxintr;
   int i;
 
   up_map_region((void *)IOAPIC_BASE, HUGE_PAGE_SIZE,
@@ -365,7 +313,7 @@ static void up_ioapic_init(void)
 
   /* Setup the IO-APIC, remap the interrupt to 32~ */
 
-  uint32_t maxintr = (up_ioapic_read(IOAPIC_REG_VER) >> 16) & 0xff;
+  maxintr = (up_ioapic_read(IOAPIC_REG_VER) >> 16) & 0xff;
 
   for (i = 0; i < maxintr; i++)
     {
@@ -485,29 +433,36 @@ static inline void up_idtinit(void)
 
 void up_irqinitialize(void)
 {
-  /* Initialize the IST */
+  int cpu = up_cpu_index();
 
-  up_ist_init();
+  /* Initialize the TSS */
 
-#ifndef CONFIG_ARCH_INTEL64_DISABLE_INT_INIT
-  /* Disable 8259 PIC */
-
-  up_deinit_8259();
-#endif
+  x86_64_cpu_tss_init(cpu);
 
   /* Initialize the APIC */
 
   up_apic_init();
 
+  if (cpu == 0)
+    {
 #ifndef CONFIG_ARCH_INTEL64_DISABLE_INT_INIT
-  /* Initialize the IOAPIC */
+      /* Disable 8259 PIC */
 
-  up_ioapic_init();
+      up_deinit_8259();
+
+      /* Initialize the IOAPIC */
+
+      up_ioapic_init();
 #endif
 
-  /* Initialize the IDT */
+      /* Initialize the IDT */
 
-  up_idtinit();
+      up_idtinit();
+    }
+
+  /* Program the IDT - one per all cores */
+
+  setidt(&g_idt_entries, sizeof(struct idt_entry_s) * NR_IRQS - 1);
 
   /* And finally, enable interrupts */
 
@@ -541,7 +496,9 @@ void up_disable_irq(int irq)
       g_irq_priv[irq].busy -= 1;
     }
 
-  if (g_irq_priv[irq].busy == 0)
+  CPU_CLR(up_cpu_index(), &g_irq_priv[irq].busy);
+
+  if (CPU_COUNT(&g_irq_priv[irq].busy) == 0)
     {
       /* One time disable */
 
@@ -571,7 +528,7 @@ void up_enable_irq(int irq)
 #  ifndef CONFIG_IRQCHAIN
   /* Check if IRQ is free if we don't support IRQ chains */
 
-  if (g_irq_priv[irq].busy)
+  if (CPU_ISSET(up_cpu_index(), &g_irq_priv[irq].busy))
     {
       ASSERT(0);
     }
@@ -584,7 +541,7 @@ void up_enable_irq(int irq)
       ASSERT(0);
     }
 
-  if (g_irq_priv[irq].busy == 0)
+  if (CPU_COUNT(&g_irq_priv[irq].busy) == 0)
     {
       /* One time enable */
 
@@ -594,7 +551,7 @@ void up_enable_irq(int irq)
         }
     }
 
-  g_irq_priv[irq].busy += 1;
+  CPU_SET(up_cpu_index(), &g_irq_priv[irq].busy);
 
   spin_unlock_irqrestore(&g_irq_spin, flags);
 #endif
@@ -618,3 +575,29 @@ int up_prioritize_irq(int irq, int priority)
   return OK;
 }
 #endif
+
+/****************************************************************************
+ * Name: up_trigger_irq
+ *
+ * Description:
+ *   Trigger IRQ interrupt.
+ *
+ ****************************************************************************/
+
+void up_trigger_irq(int irq, cpu_set_t cpuset)
+{
+  uint32_t cpu = 0;
+
+  for (cpu = 0; cpu < CONFIG_SMP_NCPUS; cpu++)
+    {
+      if (CPU_ISSET(cpu, &cpuset))
+        {
+          write_msr(MSR_X2APIC_ICR,
+                    MSR_X2APIC_ICR_FIXED |
+                    MSR_X2APIC_ICR_ASSERT |
+                    MSR_X2APIC_DESTINATION(
+                      (uint64_t)x86_64_cpu_to_loapic(cpu)) |
+                    irq);
+        }
+    }
+}

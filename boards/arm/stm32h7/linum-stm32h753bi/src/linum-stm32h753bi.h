@@ -92,9 +92,9 @@
 #  undef HAVE_SDIO
 #endif
 
-#define GPIO_SDIO_NCD     (GPIO_INPUT | GPIO_FLOAT | GPIO_EXTI | GPIO_PORTG | GPIO_PIN7)
+#define GPIO_SDIO_NCD     (GPIO_INPUT | GPIO_FLOAT | GPIO_EXTI | GPIO_PORTG | GPIO_PIN7) /* PG7 */
 #define GPIO_SD1_PWR_EN_N (GPIO_OUTPUT | GPIO_PUSHPULL | GPIO_SPEED_50MHz | \
-                           GPIO_OUTPUT_SET | GPIO_PORTD | GPIO_PIN7)
+                           GPIO_OUTPUT_SET | GPIO_PORTD | GPIO_PIN7)                     /* PD7 */
 
 #define SDIO_SLOTNO        0
 #define SDIO_MINOR         0
@@ -102,6 +102,21 @@
 /* PWM */
 
 #define BUZZER_PWMTIMER 4
+
+/* Ethernet
+ *
+ * PI4  Reset PHY pin
+ */
+
+#define GPIO_ETH_RESET    (GPIO_OUTPUT | GPIO_PUSHPULL | GPIO_SPEED_100MHz |\
+                           GPIO_OUTPUT_CLEAR | GPIO_PORTI | GPIO_PIN4)  /* PI4 */
+
+/* Quadrature Encoder
+ *
+ * Use Timer 5 (TIM3) on channels 2 and 2 for QEncoder, using PB4 and PA7.
+ */
+
+#define LINUMSTM32H753BI_QETIMER 5
 
 /****************************************************************************
  * Public Function Prototypes
@@ -141,7 +156,7 @@ void weak_function stm32_usbinitialize(void);
  * Name: stm32_dma_alloc_init
  *
  * Description:
- *   Called to create a FAT DMA allocator
+ *   Called to create a FAT DMA allocator.
  *
  * Returned Value:
  *   0 on success or -ENOMEM
@@ -156,7 +171,7 @@ int stm32_dma_alloc_init(void);
  * Name: stm32_sdio_initialize
  *
  * Description:
- *   Initialize SDIO-based MMC/SD card support
+ *   Initialize SDIO-based MMC/SD card support.
  *
  ****************************************************************************/
 
@@ -168,7 +183,7 @@ int stm32_sdio_initialize(void);
  * Name: stm32_at24_init
  *
  * Description:
- *   Initialize and register the EEPROM for 24XX  driver.
+ *   Initialize and register the EEPROM for 24XX driver.
  *
  ****************************************************************************/
 
@@ -187,5 +202,26 @@ int stm32_at24_init(char *path);
 #ifdef CONFIG_PWM
 int stm32_pwm_setup(void);
 #endif
+/****************************************************************************
+ * Name: stm32_n25qxxx_setup
+ *
+ * Description:
+ *   Initialize and register the FLash for N25QXXX driver.
+ *
+ ****************************************************************************/
+
+#ifdef CONFIG_MTD_W25QXXXJV
+int stm32_w25qxxx_setup(void);
+#endif
+
+/****************************************************************************
+ * Name: board_qencoder_initialize
+ *
+ * Description:
+ *   Initialize the quadrature encoder driver for the given timer
+ *
+ ****************************************************************************/
+
+int board_qencoder_initialize(int devno, int timerno);
 
 #endif /* __BOARDS_ARM_STM32H7_LINUM_STM32H753BI_SRC_LINUM_STM32H753BI_H */

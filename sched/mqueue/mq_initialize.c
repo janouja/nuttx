@@ -32,6 +32,21 @@
 #include "mqueue/msg.h"
 
 /****************************************************************************
+ * Private Type Definitions
+ ****************************************************************************/
+
+struct msgpool_s
+{
+#ifndef CONFIG_DISABLE_MQUEUE
+  struct mqueue_msg_s mqueue[CONFIG_PREALLOC_MQ_MSGS +
+                             CONFIG_PREALLOC_MQ_IRQ_MSGS];
+#endif
+#ifndef CONFIG_DISABLE_MQUEUE_SYSV
+  struct msgbuf_s msgbuf[CONFIG_PREALLOC_MQ_MSGS];
+#endif
+};
+
+/****************************************************************************
  * Public Data
  ****************************************************************************/
 
@@ -42,15 +57,23 @@
  * item.
  */
 
-struct list_node g_msgfree = LIST_INITIAL_VALUE(g_msgfree);
+struct list_node g_msgfree;
 
 /* The g_msgfreeInt is a list of messages that are reserved for use by
  * interrupt handlers.
  */
 
-struct list_node g_msgfreeirq = LIST_INITIAL_VALUE(g_msgfreeirq);
+struct list_node g_msgfreeirq;
 
 #endif
+
+/****************************************************************************
+ * Private Data
+ ****************************************************************************/
+
+/* This is a pool of pre-allocated message queue buffers */
+
+static struct msgpool_s g_msgpool;
 
 /****************************************************************************
  * Private Functions
@@ -69,8 +92,8 @@ struct list_node g_msgfreeirq = LIST_INITIAL_VALUE(g_msgfreeirq);
 
 #ifndef CONFIG_DISABLE_MQUEUE
 static FAR void * mq_msgblockinit(FAR struct list_node *list,
-                                   FAR struct mqueue_msg_s *mqmsgblock,
-                                   uint16_t nmsgs, uint8_t alloc_type)
+                                  FAR struct mqueue_msg_s *mqmsgblock,
+                                  uint16_t nmsgs, uint8_t alloc_type)
 {
   int i;
   for (i = 0; i < nmsgs; i++)
@@ -95,7 +118,7 @@ static FAR void *sysv_msgblockinit(FAR struct list_node *list,
   int i;
   for (i = 0; i < nmsgs; i++)
     {
-      list_add_tail(&g_msgfreelist, &msg->node);
+      list_add_tail(list, &msg->node);
       msg++;
     }
 
@@ -125,25 +148,15 @@ static FAR void *sysv_msgblockinit(FAR struct list_node *list,
 
 void nxmq_initialize(void)
 {
-  FAR void *msg;
+  FAR void *msg = &g_msgpool;
 
   sched_trace_begin();
-
-  msg = kmm_malloc(
-#ifndef CONFIG_DISABLE_MQUEUE
-                   sizeof(struct mqueue_msg_s) *
-                   (CONFIG_PREALLOC_MQ_MSGS + CONFIG_PREALLOC_MQ_IRQ_MSGS)
-#endif
-#ifndef CONFIG_DISABLE_MQUEUE_SYSV
-                   + sizeof(struct msgbuf_s) * CONFIG_PREALLOC_MQ_MSGS
-#endif
-                   );
-
-  DEBUGASSERT(msg != NULL);
 
   /* Initialize a block of messages for general use */
 
 #ifndef CONFIG_DISABLE_MQUEUE
+  list_initialize(&g_msgfree);
+
   msg = mq_msgblockinit(&g_msgfree, msg, CONFIG_PREALLOC_MQ_MSGS,
                          MQ_ALLOC_FIXED);
 
@@ -151,11 +164,15 @@ void nxmq_initialize(void)
    * interrupt handlers
    */
 
+  list_initialize(&g_msgfreeirq);
+
   msg = mq_msgblockinit(&g_msgfreeirq, msg, CONFIG_PREALLOC_MQ_IRQ_MSGS,
                          MQ_ALLOC_IRQ);
 #endif
 
 #ifndef CONFIG_DISABLE_MQUEUE_SYSV
+  list_initialize(&g_msgfreelist);
+
   msg = sysv_msgblockinit(&g_msgfreelist, msg, CONFIG_PREALLOC_MQ_MSGS);
 #endif
 

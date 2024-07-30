@@ -108,7 +108,7 @@ endif
 ifeq ($(CONFIG_SCHED_TICKLESS),y)
 CHIP_CSRCS += sam_tickless.c
 endif
-ifeq ($(CONFIG_SENSORS_QENCODER),y)
+ifeq ($(CONFIG_SAMV7_QENCODER),y)
 CHIP_CSRCS += sam_qencoder.c
 endif
 endif
@@ -137,8 +137,16 @@ ifeq ($(CONFIG_SAMV7_TRNG),y)
 CHIP_CSRCS += sam_trng.c
 endif
 
+ifeq ($(CONFIG_SAMV7_EEFC),y)
+CHIP_CSRCS += sam_eefc.c
+endif
+
 ifeq ($(CONFIG_SAMV7_PROGMEM),y)
-CHIP_CSRCS += sam_progmem.c sam_eefc.c
+CHIP_CSRCS += sam_progmem.c
+endif
+
+ifeq ($(CONFIG_SAMV7_USER_SIGNATURE),y)
+CHIP_CSRCS += sam_us.c
 endif
 
 ifeq ($(CONFIG_SAMV7_PWM),y)

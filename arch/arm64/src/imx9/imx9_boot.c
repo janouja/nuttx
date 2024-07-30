@@ -37,8 +37,12 @@
 #include "arm64_arch.h"
 #include "arm64_internal.h"
 #include "arm64_mmu.h"
+
 #include "imx9_boot.h"
+#include "imx9_clockconfig.h"
 #include "imx9_serial.h"
+#include "imx9_gpio.h"
+#include "imx9_lowputc.h"
 
 /****************************************************************************
  * Private Data
@@ -46,13 +50,21 @@
 
 static const struct arm_mmu_region g_mmu_regions[] =
 {
-    MMU_REGION_FLAT_ENTRY("DEVICE_REGION",
-                          CONFIG_DEVICEIO_BASEADDR, CONFIG_DEVICEIO_SIZE,
-                          MT_DEVICE_NGNRNE | MT_RW | MT_SECURE),
+  MMU_REGION_FLAT_ENTRY("DEVICE_REGION",
+                        CONFIG_DEVICEIO_BASEADDR, CONFIG_DEVICEIO_SIZE,
+                        MT_DEVICE_NGNRNE | MT_RW | MT_SECURE),
 
-    MMU_REGION_FLAT_ENTRY("DRAM0_S0",
-                          CONFIG_RAMBANK1_ADDR, CONFIG_RAMBANK1_SIZE,
-                          MT_NORMAL | MT_RW | MT_SECURE),
+  MMU_REGION_FLAT_ENTRY("DRAM0_S0",
+                        CONFIG_RAMBANK1_ADDR, CONFIG_RAMBANK1_SIZE,
+                        MT_NORMAL | MT_RW | MT_SECURE),
+
+  MMU_REGION_FLAT_ENTRY("OCRAM",
+                        CONFIG_OCRAM_BASE_ADDR, CONFIG_OCRAM_SIZE,
+                        MT_NORMAL | MT_RW | MT_SECURE),
+
+  MMU_REGION_FLAT_ENTRY("FSPI_PERIPHERAL",
+                        CONFIG_FSPI_PER_BASEADDR, CONFIG_FSPI_PER_SIZE,
+                        MT_DEVICE_NGNRNE | MT_RW | MT_SECURE),
 };
 
 const struct arm_mmu_config g_mmu_config =
@@ -80,6 +92,11 @@ const struct arm_mmu_config g_mmu_config =
 
 void arm64_el_init(void)
 {
+#if (CONFIG_ARCH_ARM64_EXCEPTION_LEVEL == 3)
+  /* At EL3, cntfrq_el0 is uninitialized. It must be set. */
+
+  write_sysreg(CONFIG_BOOTLOADER_SYS_CLOCK, cntfrq_el0);
+#endif
 }
 
 /****************************************************************************
@@ -95,6 +112,26 @@ void arm64_chip_boot(void)
   /* MAP IO and DRAM, enable MMU. */
 
   arm64_mmu_init(true);
+
+  /* Initialize system clocks to some sensible state */
+
+  imx9_clockconfig();
+
+  /* Do UART early initialization & pin muxing */
+
+#ifdef CONFIG_IMX9_LPUART
+  imx9_lowsetup();
+#endif
+
+#if defined(CONFIG_ARM64_PSCI)
+  arm64_psci_init("smc");
+#endif
+
+  /* Initialize pin interrupt support */
+
+#ifdef CONFIG_IMX9_GPIO_IRQ
+  imx9_gpioirq_initialize();
+#endif
 
   /* Perform board-specific device initialization. This would include
    * configuration of board specific resources such as GPIOs, LEDs, etc.

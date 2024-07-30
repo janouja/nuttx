@@ -52,6 +52,18 @@ if(CONFIG_PWM)
   list(APPEND SRCS stm32_pwm.c)
 endif()
 
+if(CONFIG_MTD_W25QXXXJV)
+  list(APPEND SRCS stm32_w25q.c)
+endif()
+
+if(CONFIG_USBMSC)
+  list(APPEND SRCS stm32_usbmsc.c)
+endif()
+
+if(CONFIG_SENSORS_QENCODER)
+  list(APPEND SRCS stm32_qencoder.c)
+endif()
+
 target_sources(board PRIVATE ${SRCS})
 
 set_property(GLOBAL PROPERTY LD_SCRIPT "${NUTTX_BOARD_DIR}/scripts/flash.ld")

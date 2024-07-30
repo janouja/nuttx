@@ -38,6 +38,7 @@
 #include "utils/utils.h"
 #include "sixlowpan/sixlowpan.h"
 #include "icmp/icmp.h"
+#include "ipfilter/ipfilter.h"
 #include "ipforward/ipforward.h"
 #include "nat/nat.h"
 #include "devif/devif.h"
@@ -214,6 +215,27 @@ static int ipv4_dev_forward(FAR struct net_driver_s *dev,
 #endif
   int ret;
 
+#ifdef CONFIG_NET_IPFILTER
+  /* Do filter before forwarding, to make sure we drop silently before
+   * replying any other errors.
+   */
+
+  ret = ipv4_filter_fwd(dev, fwddev, ipv4);
+  if (ret < 0)
+    {
+      ninfo("Drop/Reject FORWARD packet due to filter %d\n", ret);
+
+      /* Let ipv4_forward reply the reject. */
+
+      if (ret == IPFILTER_TARGET_REJECT)
+        {
+          ret = -ENETUNREACH;
+        }
+
+      goto errout;
+    }
+#endif
+
   /* Verify that the full packet will fit within the forwarding device's MTU
    * if DF is set.
    */
@@ -286,13 +308,13 @@ static int ipv4_dev_forward(FAR struct net_driver_s *dev,
       goto errout_with_fwd;
     }
 
-#ifdef CONFIG_NET_NAT
+#ifdef CONFIG_NET_NAT44
   /* Try NAT outbound, rule matching will be performed in NAT module. */
 
   ret = ipv4_nat_outbound(fwd->f_dev, ipv4, NAT_MANIP_SRC);
   if (ret < 0)
     {
-      nwarn("WARNING: Performing NAT outbound failed, dropping!\n");
+      nwarn("WARNING: Performing NAT44 outbound failed, dropping!\n");
       goto errout_with_fwd;
     }
 #endif
@@ -532,13 +554,13 @@ drop:
 
 #ifdef CONFIG_NET_ICMP
 reply:
-#  ifdef CONFIG_NET_NAT
+#  ifdef CONFIG_NET_NAT44
   /* Before we reply ICMP, call NAT outbound to try to translate destination
    * address & port back to original status.
    */
 
   ipv4_nat_outbound(dev, ipv4, NAT_MANIP_DST);
-#  endif /* CONFIG_NET_NAT */
+#  endif /* CONFIG_NET_NAT44 */
 
   icmp_reply(dev, icmp_reply_type, icmp_reply_code);
   return OK;

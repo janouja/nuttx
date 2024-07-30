@@ -153,7 +153,7 @@ endif()
 include(nuttx_kconfig)
 nuttx_export_kconfig_by_value(${NUTTX_DEFCONFIG} "CONFIG_APPS_DIR")
 
-if(NOT CONFIG_APPS_DIR)
+if((NOT NUTTX_APPS_DIR) AND (NOT CONFIG_APPS_DIR))
   if(EXISTS "${NUTTX_DIR}/../apps")
     set(NUTTX_APPS_DIR "${NUTTX_DIR}/../apps")
   elseif(EXISTS "${NUTTX_DIR}/../nuttx-apps")
@@ -173,6 +173,7 @@ if(NOT EXISTS "${NUTTX_APPS_DIR}")
   message(FATAL_ERROR "Application directory ${NUTTX_APPS_DIR} is not found")
 endif()
 
+get_filename_component(NUTTX_APPS_DIR ${NUTTX_APPS_DIR} ABSOLUTE)
 get_filename_component(apps_dir ${NUTTX_APPS_DIR} NAME)
 set(NUTTX_APPS_BINDIR "${CMAKE_BINARY_DIR}/${apps_dir}")
 
@@ -245,7 +246,7 @@ else()
 endif()
 
 if(NOT EXISTS ${CMAKE_BINARY_DIR}/boards/dummy/Kconfig)
-  if(CONFIG_ARCH_BOARD_CUSTOM)
+  if(CONFIG_ARCH_BOARD_CUSTOM AND EXISTS ${NUTTX_BOARD_ABS_DIR}/Kconfig)
     nuttx_create_symlink(${NUTTX_BOARD_ABS_DIR}/Kconfig
                          ${CMAKE_BINARY_DIR}/boards/dummy/Kconfig)
   else()
@@ -282,7 +283,7 @@ if(NOT EXISTS ${CMAKE_BINARY_DIR}/arch/dummy)
 endif()
 
 if(NOT EXISTS ${CMAKE_BINARY_DIR}/arch/dummy/Kconfig)
-  if(CONFIG_ARCH_CHIP_CUSTOM)
+  if(CONFIG_ARCH_CHIP_CUSTOM AND EXISTS ${NUTTX_CHIP_ABS_DIR}/Kconfig)
     nuttx_create_symlink(${NUTTX_CHIP_ABS_DIR}/Kconfig
                          ${CMAKE_BINARY_DIR}/arch/dummy/Kconfig)
   else()
@@ -376,6 +377,7 @@ include(nuttx_add_symtab)
 include(nuttx_add_module)
 include(nuttx_add_dependencies)
 include(nuttx_export_header)
+include(nuttx_source_file_properties)
 include(menuconfig)
 
 include(ExternalProject)
@@ -512,6 +514,20 @@ if(CONFIG_NDEBUG)
   add_compile_options(-DNDEBUG)
 endif()
 
+# Cmake build provide absolute paths to compile files. If __FILE__ macros are
+# used in the source code(ASSERT), the binary will contain many invalid paths.
+# This saves some memory, stops exposing build systems locations in binaries,
+# make failure logs more deterministic and most importantly makes builds more
+# failure logs more deterministic and most importantly makes builds more
+# deterministic. Debuggers usually have a path mapping feature to ensure the
+# files are still found.
+if(CONFIG_OUTPUT_STRIP_PATHS)
+  add_compile_options(-fmacro-prefix-map=${NUTTX_DIR}=)
+  add_compile_options(-fmacro-prefix-map=${NUTTX_APPS_DIR}=)
+  add_compile_options(-fmacro-prefix-map=${NUTTX_BOARD_ABS_DIR}=)
+  add_compile_options(-fmacro-prefix-map=${NUTTX_CHIP_ABS_DIR}=)
+endif()
+
 add_definitions(-D__NuttX__)
 
 set_property(
@@ -621,9 +637,8 @@ if(NOT CONFIG_ARCH_SIM)
 
   # TODO: nostart/nodefault not applicable to nuttx toolchain
   target_link_libraries(
-    nuttx
-    PRIVATE ${NUTTX_EXTRA_FLAGS} -Wl,--script=${ldscript} -Wl,--start-group
-            ${nuttx_libs} ${nuttx_extra_libs} -Wl,--end-group)
+    nuttx PRIVATE -T${ldscript} -Wl,--start-group ${nuttx_libs}
+                  ${nuttx_extra_libs} -Wl,--end-group)
 
   # generate binary outputs in different formats (.bin, .hex, etc)
   nuttx_generate_outputs(nuttx)
@@ -695,7 +710,9 @@ else()
       COMMAND
         echo ARGS
         '__init_array_start = .\; __init_array_end = .\; __fini_array_start = .\; __fini_array_end = .\;'
-        >> nuttx.ld)
+        >> nuttx.ld
+      COMMAND sed -i '/\\.data *:/i " ${CONFIG_SIM_CUSTOM_DATA_SECTION} " '
+              nuttx.ld)
   endif()
 
   # conflicting symbols to rename
@@ -727,7 +744,7 @@ else()
         ${nuttx_libs_paths} ${nuttx_extra_libs}
         $<$<NOT:$<BOOL:${APPLE}>>:-Wl,--end-group> -o nuttx.rel
       COMMAND ${CMAKE_OBJCOPY} --redefine-syms=nuttx-names.dat nuttx.rel
-      DEPENDS ${nuttx_libs} ${nuttx_extra_libs} sim_head
+      DEPENDS ${nuttx_libs} ${nuttx_extra_libs} sim_head sim_redefine_symbols
       COMMAND_EXPAND_LISTS)
   endif()
   add_custom_target(nuttx-rel DEPENDS nuttx.rel
@@ -753,7 +770,22 @@ if(CONFIG_BUILD_PROTECTED)
   get_property(nuttx_apps_libs GLOBAL PROPERTY NUTTX_APPS_LIBRARIES)
 
   get_property(user_ldscript GLOBAL PROPERTY LD_SCRIPT_USER)
-  list(TRANSFORM user_ldscript PREPEND "-Wl,--script=")
+
+  if(DEFINED PREPROCES)
+    get_filename_component(LD_SCRIPT_NAME ${user_ldscript} NAME)
+    set(LD_SCRIPT_TMP "${CMAKE_BINARY_DIR}/${LD_SCRIPT_NAME}.tmp")
+    add_custom_command(
+      OUTPUT ${LD_SCRIPT_TMP}
+      DEPENDS ${user_ldscript}
+      COMMAND ${PREPROCES} -I${CMAKE_BINARY_DIR}/include -I${NUTTX_CHIP_ABS_DIR}
+              ${user_ldscript} > ${LD_SCRIPT_TMP}
+      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+    add_custom_target(user_ldscript_tmp DEPENDS ${LD_SCRIPT_TMP})
+    add_dependencies(nuttx_user user_ldscript_tmp)
+    set(user_ldscript ${LD_SCRIPT_TMP})
+  endif()
+
+  list(TRANSFORM user_ldscript PREPEND "-T")
 
   execute_process(
     COMMAND ${CMAKE_C_COMPILER} ${CMAKE_C_FLAGS} ${NUTTX_EXTRA_FLAGS}

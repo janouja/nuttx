@@ -101,12 +101,6 @@ static void k230_copy_init_data(void)
  * Public Data
  ****************************************************************************/
 
-/* NOTE: g_idle_topstack needs to point the top of the idle stack
- * for CPU0 and this value is used in up_initial_state()
- */
-
-uintptr_t g_idle_topstack = K230_IDLESTACK_TOP;
-
 /****************************************************************************
  * Public Functions
  ****************************************************************************/
@@ -121,20 +115,20 @@ void k230_start(int mhartid, const char *dtb)
     {
       k230_clear_bss();
 
-#ifdef CONFIG_BUILD_KERNEL
+#ifdef CONFIG_RISCV_PERCPU_SCRATCH
       riscv_percpu_add_hart(mhartid);
 #else
       k230_copy_init_data();
 #endif
     }
 
-#ifndef CONFIG_BUILD_KERNEL
+#ifndef CONFIG_ARCH_USE_S_MODE
     k230_hart_init();
 #endif
 
   /* Disable MMU */
 
-  WRITE_CSR(satp, 0x0);
+  WRITE_CSR(CSR_SATP, 0x0);
 
   /* Configure FPU */
 

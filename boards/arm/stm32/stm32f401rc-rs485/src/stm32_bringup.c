@@ -55,6 +55,22 @@
 #include "board_qencoder.h"
 #endif
 
+#ifdef CONFIG_RNDIS
+#  include <nuttx/usb/rndis.h>
+#endif
+
+#ifdef CONFIG_SENSORS_HCSR04
+#include "stm32_hcsr04.h"
+#endif
+
+#ifdef CONFIG_LCD_MAX7219
+#include "stm32_max7219_matrix.h"
+#endif
+
+#ifdef CONFIG_STEPPER_DRV8825
+#include "stm32_drv8266.h"
+#endif
+
 /****************************************************************************
  * Public Functions
  ****************************************************************************/
@@ -193,6 +209,27 @@ int stm32_bringup(void)
     }
 #endif
 
+#ifdef CONFIG_LCD_MAX7219
+  /* Configure and initialize the MAX7219 driver */
+
+  ret = board_max7219_matrix_initialize(1);
+  if (ret < 0)
+    {
+      syslog(LOG_ERR, \
+       "ERROR: board_max7219_matrix_initialize failed: %d\n", ret);
+    }
+#endif
+
+#ifdef CONFIG_VIDEO_FB
+  /* Initialize and register the framebuffer driver */
+
+  ret = fb_register(0, 0);
+  if (ret < 0)
+    {
+      syslog(LOG_ERR, "ERROR: fb_register() failed: %d\n", ret);
+    }
+#endif
+
 #ifdef HAVE_SDIO
   /* Initialize the SDIO block driver */
 
@@ -215,6 +252,37 @@ int stm32_bringup(void)
              "ERROR: Failed to register the qencoder: %d\n",
              ret);
       return ret;
+    }
+#endif
+
+#if defined(CONFIG_RNDIS) && !defined(CONFIG_RNDIS_COMPOSITE)
+  uint8_t mac[6];
+  mac[0] = 0xa0; /* TODO */
+  mac[1] = (CONFIG_NETINIT_MACADDR_2 >> (8 * 0)) & 0xff;
+  mac[2] = (CONFIG_NETINIT_MACADDR_1 >> (8 * 3)) & 0xff;
+  mac[3] = (CONFIG_NETINIT_MACADDR_1 >> (8 * 2)) & 0xff;
+  mac[4] = (CONFIG_NETINIT_MACADDR_1 >> (8 * 1)) & 0xff;
+  mac[5] = (CONFIG_NETINIT_MACADDR_1 >> (8 * 0)) & 0xff;
+  usbdev_rndis_initialize(mac);
+#endif
+
+#ifdef CONFIG_SENSORS_HCSR04
+  /* Configure and initialize the HC-SR04 distance sensor */
+
+  ret = board_hcsr04_initialize(0);
+  if (ret < 0)
+    {
+      syslog(LOG_ERR, "ERROR: board_hcsr04_initialize() failed: %d\n", ret);
+    }
+#endif
+
+#ifdef CONFIG_STEPPER_DRV8825
+  /* Configure and initialize the drv8825 driver */
+
+  ret = board_drv8825_initialize(0);
+  if (ret < 0)
+    {
+      syslog(LOG_ERR, "ERROR: board_drv8825_initialize failed: %d\n", ret);
     }
 #endif
 
